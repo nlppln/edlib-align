@@ -8,26 +8,32 @@ from collections import Counter
 
 
 def make_mapping(sequences):
+    too_many_strange_characters = False
+    replacement = None
+
     # make char -> int mapping
     temp = {}
-    multiple_chars = []
+    multiple_chars = Counter()
 
     for sequence in sequences:
         for c in sequence:
             length = len(c.encode('utf-8'))
             if length > 1:
-                multiple_chars.append(c)
+                multiple_chars[c] += 1
             else:
                 temp[ord(c)] = c
 
-    if len(temp.keys()) + len(set(multiple_chars)) > 255:
-        raise ValueError('Too many strange characters!')
+    if len(temp.keys()) + len(set(multiple_chars)) > 127:
+        too_many_strange_characters = True
 
     # find unused integers for characters encoded with multiple characters
-    for c in set(multiple_chars):
-        for i in range(1, 256):
+    # if there are too many of these strange characters, the least frequent
+    # are ignored
+    for c, _freq in multiple_chars.most_common():
+        for i in range(128):
             if i not in temp.keys():
                 temp[i] = c
+                replacement = c
                 break
 
     # reverse the int -> char mapping
@@ -35,13 +41,13 @@ def make_mapping(sequences):
     for k, v in temp.items():
         mapping[v] = k
 
-    return mapping
+    return mapping, too_many_strange_characters, replacement
 
 
-def translate(mapping, sequence):
+def translate(mapping, sequence, default_replacement_character):
     seq = []
     for i, c in enumerate(sequence):
-        seq.append(chr(mapping[c]))
+        seq.append(chr(mapping.get(c, ord(default_replacement_character))))
     return ''.join(seq)
 
 
@@ -56,9 +62,13 @@ def align(file1, file2, out_dir):
         seq2 = f.read()
 
     # map characters encoded with multiple characters to single characters
-    mapping = make_mapping([seq1, seq2])
-    sequence1 = translate(mapping, seq1)
-    sequence2 = translate(mapping, seq2)
+    # disable_sanity_check is True if the total number of different characters
+    # in the texts is > 127 (this means these characters can't be encoded with
+    # single byte characters and will be replaced with a default single byte
+    # character)
+    mapping, disable_check, replacement_character = make_mapping([seq1, seq2])
+    sequence1 = translate(mapping, seq1, replacement_character)
+    sequence2 = translate(mapping, seq2, replacement_character)
 
     aligment = edlib.align(sequence1, sequence2, task='path')
     edit_distance = aligment['editDistance']
@@ -78,7 +88,11 @@ def align(file1, file2, out_dir):
 
         if typ == '=':
             # sanity check - strings should be equal
-            assert(seq1[offset1:offset1+n] == seq2[offset2:offset2+n])
+            try:
+                assert(seq1[offset1:offset1+n] == seq2[offset2:offset2+n])
+            except AssertionError as e:
+                if not disable_check:
+                    raise(e)
 
             if changes_from != [] and changes_to != []:
                 changes[(''.join(changes_from), ''.join(changes_to))] += 1
