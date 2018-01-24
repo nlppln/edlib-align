@@ -9,7 +9,7 @@ from collections import Counter
 
 def make_mapping(sequences):
     too_many_strange_characters = False
-    replacement = None
+    replacement = u'@'
 
     # make char -> int mapping
     temp = {}
