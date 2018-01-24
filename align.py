@@ -56,10 +56,15 @@ def translate(mapping, sequence, default_replacement_character):
 @click.argument('file2', type=click.Path(exists=True))
 @click.option('--out_dir', '-o', default=os.getcwd(), type=click.Path())
 def align(file1, file2, out_dir):
+    err_msg = 'File "{}" does not contain a string that can be aligned.'
     with open(file1, encoding='utf-8') as f:
         seq1 = f.read()
+        if len(seq1) == 0:
+            raise ValueError(err_msg.format(file1))
     with open(file2, encoding='utf-8') as f:
         seq2 = f.read()
+        if len(seq2) == 0:
+            raise ValueError(err_msg.format(file2))
 
     # map characters encoded with multiple characters to single characters
     # disable_sanity_check is True if the total number of different characters
