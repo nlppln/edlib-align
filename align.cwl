@@ -4,7 +4,7 @@ class: CommandLineTool
 baseCommand: ["python", "/align.py"]
 hints:
   - class: DockerRequirement
-    dockerPull: nlppln/align:0.1.0
+    dockerPull: nlppln/align:0.1.1
 inputs:
   file1:
     type: File
